@@ -1,4 +1,4 @@
-"use client";
+'use client'
 import { Input } from "@/components/ui/input";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,62 +25,97 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { createTodo, updateTodoById } from "../actions";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect } from "react";
+import { ITodo } from "@/lib/types";
 
 const FormSchema = z.object({
 	title: z.string().min(10, {
 		message: "Title must be at least 10 characters.",
 	}),
-	completed: z.boolean(),
+	description: z.string().min(10, {
+		message: "Title must be at least 10 characters.",
+	}),
+	status: z.enum(["Done", "Pending"]),
 });
 
-export default function TodoForm({ isEdit }: { isEdit: boolean }) {
+export default function TodoForm({ isEdit, todo }: { isEdit: boolean; todo?: ITodo }) {
+	const status = ["Done", "Pending"];
+	
 	const form = useForm<z.infer<typeof FormSchema>>({
 		resolver: zodResolver(FormSchema),
 		defaultValues: {
 			title: "",
-			completed: false,
+			description: "",
+			status: "Pending"
 		},
 	});
 
-	const handleCreateMember = (data: z.infer<typeof FormSchema>) => {
-		createTodo();
+	useEffect(() => {
+		if (todo) {
+			form.reset({
+				title: todo.title,
+				description: todo.description,
+				status: todo.status,
+			});
+		}
+	}, [todo, form]);
 
-		document.getElementById("create-trigger")?.click();
 
-		toast({
-			title: "You submitted the following values:",
-			description: (
-				<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-					<code className="text-white">
+	const handleCreateTodo = async (data: z.infer<typeof FormSchema>) => {
+		const result = await createTodo(data);
+		const {error} = JSON.parse(result);
+
+		if(error?.message){
+			toast({
+				title: "Failed to create task:",
+				description: (
+					<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+						<code className="text-white">
+							{error.message}
+						</code>
+					</pre>
+				),
+			});
+		}else{
+			document.getElementById("create-trigger")?.click();
+			
+			toast({
+				title: "Successfully created task:",
+				description: (
+					<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+						<code className="text-white">
 						{JSON.stringify(data, null, 2)}
-					</code>
-				</pre>
-			),
-		});
+						</code>
+					</pre>
+				),
+			});
+		}
 	};
 
-	const handleUpdateMember = (data: z.infer<typeof FormSchema>) => {
-		updateTodoById("hello");
-		document.getElementById("update-trigger")?.click();
+	const handleUpdateTodo = async (data: z.infer<typeof FormSchema>) => {
+		if (!todo?.id) {
+			toast({
+				title: "Error",
+				description: "task id not found",
+				variant: "destructive",
+			});
+			return;
+		}
 
-		toast({
-			title: "You submitted the following values:",
-			description: (
-				<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-					<code className="text-white">
-						{JSON.stringify(data, null, 2)}
-					</code>
-				</pre>
-			),
+		await updateTodoById(todo.id, {
+			title: data.title,
+			description: data.description,
+			status: data.status,
 		});
+		toast({ title: "Task Updated!" });
+
 	};
 
-	function onSubmit(data: z.infer<typeof FormSchema>) {
+	async function onSubmit(data: z.infer<typeof FormSchema>) {
 		if (isEdit) {
-			handleUpdateMember(data);
+			await handleUpdateTodo(data);
 		} else {
-			handleCreateMember(data);
+			await handleCreateTodo(data);
 		}
 	}
 
@@ -98,7 +133,7 @@ export default function TodoForm({ isEdit }: { isEdit: boolean }) {
 							<FormLabel>Title</FormLabel>
 							<FormControl>
 								<Input
-									placeholder="todo title"
+									placeholder="Task title"
 									type="text"
 									{...field}
 									onChange={field.onChange}
@@ -108,23 +143,59 @@ export default function TodoForm({ isEdit }: { isEdit: boolean }) {
 						</FormItem>
 					)}
 				/>
+
 				<FormField
 					control={form.control}
-					name="completed"
+					name="description"
 					render={({ field }) => (
-						<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow">
+						<FormItem>
+							<FormLabel>Description</FormLabel>
 							<FormControl>
-								<Checkbox
-									checked={field.value}
-									onCheckedChange={field.onChange}
+								<Input
+									placeholder="Task desc"
+									type="text"
+									{...field}
+									onChange={field.onChange}
 								/>
 							</FormControl>
-							<div className="space-y-1 leading-none">
-								<FormLabel>complete</FormLabel>
-							</div>
+							<FormMessage />
 						</FormItem>
 					)}
 				/>
+
+				<FormField
+					control={form.control}
+					name="status"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Status</FormLabel>
+							<Select
+								onValueChange={field.onChange}
+								defaultValue={field.value}
+							>
+								<FormControl>
+									<SelectTrigger>
+										<SelectValue placeholder="Select Task status" />
+									</SelectTrigger>
+								</FormControl>
+								<SelectContent>
+									{status.map((status, index) => {
+										return (
+											<SelectItem
+												value={status}
+												key={index}
+											>
+												{status}
+											</SelectItem>
+										);
+									})}
+								</SelectContent>
+							</Select>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
 				<Button type="submit" className="w-full" variant="outline">
 					Submit
 				</Button>

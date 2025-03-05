@@ -24,9 +24,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { createMember, updateMemberById } from "../../actions";
+import { createMember } from "../../actions";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { cn } from "@/lib/utils";
+import { useTransition } from "react";
 
 const FormSchema = z
 	.object({
@@ -49,6 +50,8 @@ const FormSchema = z
 	});
 
 export default function MemberForm() {
+	const [isPending, startTransition] = useTransition()
+
 	const roles = ["admin", "user"];
 	const status = ["active", "resigned"];
 
@@ -63,20 +66,38 @@ export default function MemberForm() {
 	});
 
 	function onSubmit(data: z.infer<typeof FormSchema>) {
-		createMember();
+		startTransition(async () => {
+			const result = await createMember(data);
+			const {error} = JSON.parse(result);
 
-		document.getElementById("create-trigger")?.click();
+			if(error?.message){
+				toast({
+					title: "Failed to create user:",
+					description: (
+						<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+							<code className="text-white">
+								{error.message}
+							</code>
+						</pre>
+					),
+				});
+			}else{
+				document.getElementById("create-trigger")?.click();
+				
+				toast({
+					title: "Successfully created user:",
+					description: (
+						<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+							<code className="text-white">
+							{JSON.stringify(data, null, 2)}
+							</code>
+						</pre>
+					),
+				});
+			}
+		})
 
-		toast({
-			title: "You submitted the following values:",
-			description: (
-				<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-					<code className="text-white">
-						{JSON.stringify(data, null, 2)}
-					</code>
-				</pre>
-			),
-		});
+		
 	}
 
 	return (
@@ -233,7 +254,7 @@ export default function MemberForm() {
 				>
 					Submit{" "}
 					<AiOutlineLoading3Quarters
-						className={cn("animate-spin", { hidden: true })}
+						className={cn("animate-spin", { hidden: !isPending })}
 					/>
 				</Button>
 			</form>

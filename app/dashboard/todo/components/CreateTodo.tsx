@@ -7,7 +7,7 @@ export default function CreateTodo() {
 	return (
 		<DailogForm
 			id="create-trigger"
-			title="Create Todo"
+			title="Create Task"
 			Trigger={<Button variant="outline">Create+</Button>}
 			form={<TodoForm isEdit={false} />}
 		/>
